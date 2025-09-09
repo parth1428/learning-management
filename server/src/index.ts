@@ -1,3 +1,4 @@
+
 import express from "express";
 import dotenv from "dotenv";
 import bodyParser from "body-parser";
@@ -5,28 +6,22 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import * as dynamoose from "dynamoose";
-import exp from "constants";
+import serverless from "serverless-http";
+import seed from "./seed/seedDynamodb";
 import {
   clerkMiddleware,
   createClerkClient,
   requireAuth,
 } from "@clerk/express";
-
-/* Route Imports*/
-
-import CourseRoutes from "./routes/CourseRoutes";
+/* ROUTE IMPORTS */
+import courseRoutes from "./routes/CourseRoutes";
 import userClerkRoutes from "./routes/userClerkRoutes";
 import transactionRoutes from "./routes/transactionRoutes";
-import UserCourseProgressRoutes from "./routes/userCourseProgressRoutes";
-import ServerlessHttp from "serverless-http";
-import seed from "./seed/seedDynamodb";
+import userCourseProgressRoutes from "./routes/userCourseProgressRoutes";
 
-/*Config*/
-
+/* CONFIGURATIONS */
 dotenv.config();
-
-const isProduction = process.env.Node_ENV === "production";
-
+const isProduction = process.env.NODE_ENV === "production";
 if (!isProduction) {
   dynamoose.aws.ddb.local();
 }
@@ -40,38 +35,37 @@ app.use(express.json());
 app.use(helmet());
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 app.use(morgan("common"));
+app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cors());
 app.use(clerkMiddleware());
 
-/*ROUTES*/
+/* ROUTES */
 app.get("/", (req, res) => {
-  res.send("HELLO WORLD");
+  res.send("Hello World");
 });
 
-app.use("/courses", CourseRoutes);
-app.use("/user/clerk", requireAuth(), userClerkRoutes);
+app.use("/courses", courseRoutes);
+app.use("/users/clerk", requireAuth(), userClerkRoutes);
 app.use("/transactions", requireAuth(), transactionRoutes);
-app.use("/users/course-progress", requireAuth(), UserCourseProgressRoutes);
+app.use("/users/course-progress", requireAuth(), userCourseProgressRoutes);
 
-/*SERVER*/
-
+/* SERVER */
 const port = process.env.PORT || 3000;
 if (!isProduction) {
   app.listen(port, () => {
-    console.log(`Server running at port ${port}`);
+    console.log(`Server running on port ${port}`);
   });
 }
 
-/*Serverless*/
-
-const serverlessApp = ServerlessHttp(app);
+// aws production environment
+const serverlessApp = serverless(app);
 export const handler = async (event: any, context: any) => {
   if (event.action === "seed") {
     await seed();
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: "Data Seeded Successfully" }),
+      body: JSON.stringify({ message: "Data seeded successfully" }),
     };
   } else {
     return serverlessApp(event, context);
